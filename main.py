@@ -24,10 +24,10 @@ def info() -> typing.Dict:
 
     return {
         "apiversion": "1",
-        "author": "",  # TODO: Your Battlesnake Username
-        "color": "#888888",  # TODO: Choose color
-        "head": "default",  # TODO: Choose head
-        "tail": "default",  # TODO: Choose tail
+        "author": "Jack Sparrow",  # TODO: Your Battlesnake Username
+        "color": "#abb1b6",  # TODO: Choose color
+        "head": "pirate",  # TODO: Choose head
+        "tail": "pirate",  # TODO: Choose tail
     }
 
 
@@ -130,14 +130,54 @@ def move(game_state: typing.Dict) -> typing.Dict:
         is_move_safe["up"] = False
 
     # TODO: Prevent your Battlesnake from moving out of bounds
-    # board_width = game_state['board']['width']
-    # board_height = game_state['board']['height']
+    board_width = game_state['board']['width']
+    board_height = game_state['board']['height']
+
+    if my_head["x"] == 0:
+        is_move_safe["left"] = False
+    if my_head["x"] == board_width - 1:
+        is_move_safe["right"] = False
+    
+    if my_head["y"] == 0:
+        is_move_safe["down"] = False
+    if my_head["y"] == board_height - 1:
+        is_move_safe["up"] = False
 
     # TODO: Prevent your Battlesnake from colliding with itself
-    # my_body = game_state['you']['body']
+    # index 0 is just head, the rest body starts from index 1
+    my_body = game_state['you']['body'][1:]
+
+    for body in my_body:
+        if my_head["x"] == body["x"]:
+            if my_head["y"] + 1 == body["y"]:   # Head is below the body
+                is_move_safe["up"] = False
+            elif my_head["y"] - 1 == body["y"]: # Head is above the body
+                is_move_safe["down"] = False
+        
+        if my_head["y"] == body["y"]:
+            if my_head["x"] - 1 == body["x"]:   # Head is facing towards the right side
+                is_move_safe["left"] = False
+            elif my_head["x"] + 1 == body["x"]: # Head is facing towards the left side
+                is_move_safe["right"] = False
+
 
     # TODO: Prevent your Battlesnake from colliding with other Battlesnakes
-    # opponents = game_state['board']['snakes']
+    opponents = game_state['board']['snakes']
+    for opponent in opponents:
+        for body in opponent["body"]:
+            if my_head["x"] == body["x"]:
+                if my_head["y"] + 1 == body["y"]:
+                    is_move_safe["up"] = False
+                elif my_head["y"] - 1 == body["y"]:
+                    is_move_safe["down"] = False
+            
+            if my_head["y"] == body["y"]:
+                if my_head["x"] + 1 == body["x"]:
+                    is_move_safe["right"] = False
+                elif my_head["x"] - 1 == body["x"]:
+                    is_move_safe["left"] = False
+
+
 
     # Are there any safe moves left?
     safe_moves = []
