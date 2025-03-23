@@ -140,6 +140,16 @@ def get_next_state(game_state, move, is_maximizing_player):
     return next_game_state
 
 
+# REFERENCE: https://github.com/DayneHack/chess-engine/tree/main
+# def makeNullMove(board):
+#     move = chess.Move.null()
+#     board.push(move)
+
+def make_null_move(game_state):
+    null_state = copy.deepcopy(game_state)  # copy the state and do nothing to simulate null move
+    return null_state
+    
+    
 # TODO: implement the minimax algorithm
 # game_state: object that stores the current game state
 # depth: remaining depth to be searched
@@ -149,17 +159,25 @@ def get_next_state(game_state, move, is_maximizing_player):
 #       False if the opponent's snake (minimizing player) is taking an action
 
 # REFERENCE: https://www.youtube.com/watch?v=l-hh51ncgDI
-def minimax(game_state, depth, alpha, beta, is_maximizing_player):
+# https://algocademy.com/blog/implementing-game-algorithms-minimax-and-alpha-beta-pruning/
+def minimax(game_state, depth, alpha, beta, is_maximizing_player, r):
     # hint: you may use the get_next_state function provided above
     if depth == 0 or game_over(game_state):
         return evaluation_function(game_state), None
+    
+    # Null move pruning: https://github.com/DayneHack/chess-engine/blob/77a265b946b95c58314c3ff95c6ca9adff538490/chess-engine.py#L119
+    if not is_maximizing_player and depth >= 3:
+        null_state = make_null_move(game_state)
+        currEval, _ = -minimax(null_state, depth - r - 1, -beta, -beta + 1, True, r)
+        if currEval >= beta:
+            return beta, None
 
     if is_maximizing_player:
         maxEval = float("-inf")
         optimal_move = None
         for possible_move in safe_moves(game_state):
             new_state = get_next_state(game_state, possible_move, True)
-            eval, _ = minimax(new_state, depth - 1, alpha, beta, False)
+            eval, _ = minimax(new_state, depth - 1, alpha, beta, False, r)
             if eval > maxEval:
                 maxEval, optimal_move = eval, possible_move
             alpha = max(alpha, eval)
@@ -172,7 +190,7 @@ def minimax(game_state, depth, alpha, beta, is_maximizing_player):
         optimal_move = None
         for possible_move in safe_moves(game_state):
             new_state = get_next_state(game_state, possible_move, True)
-            eval, _ = minimax(new_state, depth - 1, alpha, beta, True)
+            eval, _ = minimax(new_state, depth - 1, alpha, beta, True, r)
             if eval < minEval:
                 minEval, optimal_move = eval, possible_move
             beta = min(beta, eval)
@@ -267,7 +285,7 @@ def safe_moves(game_state: typing.Dict) -> typing.Dict:
 # TODO: Instead of making a random move, use the minimax algorithm to find the optimal move
 # `move` is an innate function of the game, so I separated the 'safe moves' and 'next move' parts
 def move(game_state: typing.Dict) -> typing.Dict:
-    _, next_move = minimax(game_state, 1, float('-inf'), float('inf'), True)
+    _, next_move = minimax(game_state, 1, float('-inf'), float('inf'), True, r=2)
     print(f"MOVE {game_state['turn']}: {next_move}")
     return {"move": next_move}
 
