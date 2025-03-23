@@ -15,7 +15,6 @@ import typing
 import sys
 import copy
 
-
 # info is called when you create your Battlesnake on play.battlesnake.com
 # and controls your Battlesnake's appearance
 # TIP: If you open your Battlesnake URL in a browser you should see this data
@@ -34,10 +33,13 @@ def info() -> typing.Dict:
 # start is called when your Battlesnake begins a game
 def start(game_state: typing.Dict):
     print("GAME START")
-    boardHeight = game_state['board']['height']
-    boardWidth = game_state['board']['width']
-    timeout = game_state['game']['timeout']
-    print('Starting game with %dx%d board and %dms timeout' % (boardHeight, boardWidth, timeout))
+    boardHeight = game_state["board"]["height"]
+    boardWidth = game_state["board"]["width"]
+    timeout = game_state["game"]["timeout"]
+    print(
+        "Starting game with %dx%d board and %dms timeout"
+        % (boardHeight, boardWidth, timeout)
+    )
 
 
 # end is called when your Battlesnake finishes a game
@@ -50,17 +52,53 @@ def end(game_state: typing.Dict):
 # such as the current number of move options available, length of each snake,
 # number of squares controlled, snake health, distance to nearest food etc.
 def evaluation_function(game_state):
-    return 0
+    global opponent_snake_index
+    my_snake = game_state["you"]
+    my_head = my_snake["body"][0]
+    opponent_snake = game_state["board"]["snakes"][opponent_snake_index]
+    my_health = my_snake["health"]
+    my_length = my_snake["length"]
+    food = game_state["board"]["food"]
+    
+    # Hardcoding Manhattan formula is better than using function
+    dist_from_opponent = abs(my_head["x"] - opponent_snake["head"]["x"]) + abs(my_head["y"] - opponent_snake["head"]["y"])
+
+    # Incentivize my snake to stay away from the opponent's
+    safety_lvl = 0
+    if dist_from_opponent <= 5:
+        safety_lvl = 1 if my_length > opponent_snake["length"] else -1
+    
+    closest_food_dist = float('inf')
+
+    for a_food in food:
+        dist_to_food = abs(my_head["x"] - a_food["x"]) + abs(my_head["y"] - a_food["y"])
+        if dist_to_food < closest_food_dist:
+            closest_food_dist = dist_to_food
+
+    # Weight for each evaluation factor
+    length_weight = 1
+    safety_weight = 20
+    health_weight = 4
+    food_dist_weight = -2
+    
+    eval_score = (my_length*length_weight) + (safety_lvl*safety_weight) + (my_health*health_weight) + (closest_food_dist*food_dist_weight)
+    return eval_score
 
 # simulates what the next state will be after a given move
 def get_next_state(game_state, move, is_maximizing_player):
+    global opponent_snake_index
     next_game_state = copy.deepcopy(game_state)
-    your_snake_index = 0 if game_state['board']['snakes'][0]['id'] == game_state['you']['id'] else 1
+    your_snake_index = (
+        0 if game_state["board"]["snakes"][0]["id"] == game_state["you"]["id"] else 1
+    )
     opponent_snake_index = 1 - your_snake_index
 
-    snake = next_game_state['board']['snakes'][your_snake_index] if is_maximizing_player \
-            else next_game_state['board']['snakes'][opponent_snake_index]
-    new_head = copy.deepcopy(game_state['you']['body'][0])
+    snake = (
+        next_game_state["board"]["snakes"][your_snake_index]
+        if is_maximizing_player
+        else next_game_state["board"]["snakes"][opponent_snake_index]
+    )
+    new_head = copy.deepcopy(game_state["you"]["body"][0])
     if move == "up":
         new_head["y"] += 1
     elif move == "down":
@@ -69,31 +107,32 @@ def get_next_state(game_state, move, is_maximizing_player):
         new_head["x"] -= 1
     elif move == "right":
         new_head["x"] += 1
-    
-    snake['health'] -= 1
-    snake['head'] = new_head
-    snake['body'].insert(0, new_head)
-    snake['body'].pop()
+
+    snake["health"] -= 1
+    snake["head"] = new_head
+    snake["body"].insert(0, new_head)
+    snake["body"].pop()
 
     if is_maximizing_player:
-        next_game_state['you']['health'] -= 1
-        next_game_state['you']['head'] = new_head
-        next_game_state['you']['body'].insert(0, new_head)
-        next_game_state['you']['body'].pop()
+        next_game_state["you"]["health"] -= 1
+        next_game_state["you"]["head"] = new_head
+        next_game_state["you"]["body"].insert(0, new_head)
+        next_game_state["you"]["body"].pop()
 
-    for food in next_game_state['board']['food']:
+    for food in next_game_state["board"]["food"]:
         if food == new_head:
-            next_game_state['board']['food'].remove(food)
-            snake['health'] = 100
-            snake['body'].append(snake['body'][-1])
-            snake['length'] += 1
+            next_game_state["board"]["food"].remove(food)
+            snake["health"] = 100
+            snake["body"].append(snake["body"][-1])
+            snake["length"] += 1
             if is_maximizing_player:
-                next_game_state['you']['health'] = 100
-                next_game_state['you']['body'].append(snake['body'][-1])
-                next_game_state['you']['length'] += 1
+                next_game_state["you"]["health"] = 100
+                next_game_state["you"]["body"].append(snake["body"][-1])
+                next_game_state["you"]["length"] += 1
             break
 
     return next_game_state
+
 
 # TODO: implement the minimax algorithm
 # game_state: object that stores the current game state
@@ -102,14 +141,48 @@ def get_next_state(game_state, move, is_maximizing_player):
 # is_maximizing_player:
 #       True if your snake (maximizing player) is taking an action
 #       False if the opponent's snake (minimizing player) is taking an action
-def minimax(game_state, depth, is_maximizing_player):
+
+# REFERENCE: https://www.youtube.com/watch?v=l-hh51ncgDI
+def minimax(game_state, depth, alpha, beta, is_maximizing_player):
     # hint: you may use the get_next_state function provided above
-    pass
+    if depth == 0 or game_over(game_state):
+        return evaluation_function(game_state), None
+
+    if is_maximizing_player:
+        maxEval = float("-inf")
+        optimal_move = None
+        for possible_move in safe_moves(game_state):
+            new_state = get_next_state(game_state, possible_move, True)
+            eval, _ = minimax(new_state, depth - 1, alpha, beta, False)
+            if eval > maxEval:
+                maxEval, optimal_move = eval, possible_move
+            alpha = max(alpha, eval)
+            if beta <= alpha:
+                break
+        return maxEval, optimal_move
+
+    else:
+        minEval = float("inf")
+        optimal_move = None
+        for possible_move in safe_moves(game_state):
+            new_state = get_next_state(game_state, possible_move, True)
+            eval, _ = minimax(new_state, depth - 1, alpha, beta, True)
+            if eval < minEval:
+                minEval, optimal_move = eval, possible_move
+            beta = min(beta, eval)
+            if beta <= alpha:
+                break
+        return minEval, optimal_move
+
+
+def game_over(game_state):
+    return len(safe_moves(game_state)) == 0
+
 
 # move is called on every turn and returns your next move
 # Valid moves are "up", "down", "left", or "right"
 # See https://docs.battlesnake.com/api/example-move for available data
-def move(game_state: typing.Dict) -> typing.Dict:
+def safe_moves(game_state: typing.Dict) -> typing.Dict:
 
     is_move_safe = {"up": True, "down": True, "left": True, "right": True}
 
@@ -130,14 +203,14 @@ def move(game_state: typing.Dict) -> typing.Dict:
         is_move_safe["up"] = False
 
     # TODO: Prevent your Battlesnake from moving out of bounds
-    board_width = game_state['board']['width']
-    board_height = game_state['board']['height']
+    board_width = game_state["board"]["width"]
+    board_height = game_state["board"]["height"]
 
     if my_head["x"] == 0:
         is_move_safe["left"] = False
     if my_head["x"] == board_width - 1:
         is_move_safe["right"] = False
-    
+
     if my_head["y"] == 0:
         is_move_safe["down"] = False
     if my_head["y"] == board_height - 1:
@@ -145,39 +218,32 @@ def move(game_state: typing.Dict) -> typing.Dict:
 
     # TODO: Prevent your Battlesnake from colliding with itself
     # index 0 is just head, the rest body starts from index 1
-    my_body = game_state['you']['body'][1:]
+    my_body = game_state["you"]["body"][1:]
 
     for body in my_body:
-        if my_head["x"] == body["x"]:
-            if my_head["y"] + 1 == body["y"]:   # Head is below the body
-                is_move_safe["up"] = False
-            elif my_head["y"] - 1 == body["y"]: # Head is above the body
-                is_move_safe["down"] = False
-        
-        if my_head["y"] == body["y"]:
-            if my_head["x"] - 1 == body["x"]:   # Head is facing towards the right side
-                is_move_safe["left"] = False
-            elif my_head["x"] + 1 == body["x"]: # Head is facing towards the left side
-                is_move_safe["right"] = False
+        if my_head["x"] == body["x"] and my_head["y"] + 1 == body["y"]:  # Head is below the body
+            is_move_safe["up"] = False
+        if my_head["x"] == body["x"] and my_head["y"] - 1 == body["y"]:  # Head is above the body
+            is_move_safe["down"] = False
 
+        if my_head["y"] == body["y"] and my_head["x"] - 1 == body["x"]:  # Head is facing towards the right side
+            is_move_safe["left"] = False
+        if my_head["y"] == body["y"] and my_head["x"] + 1 == body["x"]:  # Head is facing towards the left side
+            is_move_safe["right"] = False
 
     # TODO: Prevent your Battlesnake from colliding with other Battlesnakes
-    opponents = game_state['board']['snakes']
+    opponents = game_state["board"]["snakes"]
     for opponent in opponents:
         for body in opponent["body"]:
-            if my_head["x"] == body["x"]:
-                if my_head["y"] + 1 == body["y"]:
-                    is_move_safe["up"] = False
-                elif my_head["y"] - 1 == body["y"]:
-                    is_move_safe["down"] = False
-            
-            if my_head["y"] == body["y"]:
-                if my_head["x"] + 1 == body["x"]:
-                    is_move_safe["right"] = False
-                elif my_head["x"] - 1 == body["x"]:
-                    is_move_safe["left"] = False
+            if my_head["x"] == body["x"] and my_head["y"] + 1 == body["y"]:
+                is_move_safe["up"] = False
+            if my_head["x"] == body["x"] and my_head["y"] - 1 == body["y"]:
+                is_move_safe["down"] = False
 
-
+            if my_head["y"] == body["y"] and my_head["x"] + 1 == body["x"]:
+                is_move_safe["right"] = False
+            if my_head["y"] == body["y"] and my_head["x"] - 1 == body["x"]:
+                is_move_safe["left"] = False
 
     # Are there any safe moves left?
     safe_moves = []
@@ -188,12 +254,12 @@ def move(game_state: typing.Dict) -> typing.Dict:
     if len(safe_moves) == 0:
         print(f"MOVE {game_state['turn']}: No safe moves detected! Moving down")
         return {"move": "down"}
+    
+    return safe_moves
 
-    # Choose a random move from the safe ones
-    next_move = random.choice(safe_moves)
-
-    # TODO: Instead of making a random move, use the minimax algorithm to find the optimal move
-
+# TODO: Instead of making a random move, use the minimax algorithm to find the optimal move
+def move(game_state: typing.Dict) -> typing.Dict:
+    _,next_move = minimax(game_state, 1, float('-inf'), float('inf'), True)
     print(f"MOVE {game_state['turn']}: {next_move}")
     return {"move": next_move}
 
@@ -201,9 +267,10 @@ def move(game_state: typing.Dict) -> typing.Dict:
 # Start server when `python main.py` is run
 if __name__ == "__main__":
     from server import run_server
+
     port = "8000"
     for i in range(len(sys.argv) - 1):
-        if sys.argv[i] == '--port':
-            port = sys.argv[i+1]
+        if sys.argv[i] == "--port":
+            port = sys.argv[i + 1]
 
     run_server({"info": info, "start": start, "move": move, "end": end, "port": port})
