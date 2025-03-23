@@ -10,7 +10,6 @@
 # To get you started we've included code to prevent your Battlesnake from moving backwards.
 # For more info see docs.battlesnake.com
 
-import random
 import typing
 import sys
 import copy
@@ -23,7 +22,7 @@ def info() -> typing.Dict:
 
     return {
         "apiversion": "1",
-        "author": "Jack Sparrow",  # TODO: Your Battlesnake Username
+        "author": "Jack Sparrow ☠️",  # TODO: Your Battlesnake Username
         "color": "#abb1b6",  # TODO: Choose color
         "head": "pirate",  # TODO: Choose head
         "tail": "pirate",  # TODO: Choose tail
@@ -47,19 +46,27 @@ def end(game_state: typing.Dict):
     print("GAME OVER\n")
 
 
+# Game terminates when my health is zero
+# There are other possible conditions too, like when there's only one snake left, and so on
+def game_over(game_state):
+    return game_state["you"]["health"] <= 0
+
+
 # TODO: calculate the evaluation function value for the current state
 # the value should be a function of various attributes of the game state
 # such as the current number of move options available, length of each snake,
 # number of squares controlled, snake health, distance to nearest food etc.
+
+# REFERENCE: https://github.com/han191299/starter-snake-python/tree/main
 def evaluation_function(game_state):
-    global opponent_snake_index
     my_snake = game_state["you"]
     my_head = my_snake["body"][0]
-    opponent_snake = game_state["board"]["snakes"][opponent_snake_index]
     my_health = my_snake["health"]
     my_length = my_snake["length"]
     food = game_state["board"]["food"]
-    
+    global opponent_snake_index
+    opponent_snake = game_state["board"]["snakes"][opponent_snake_index]  
+      
     # Hardcoding Manhattan formula is better than using function
     dist_from_opponent = abs(my_head["x"] - opponent_snake["head"]["x"]) + abs(my_head["y"] - opponent_snake["head"]["y"])
 
@@ -69,9 +76,8 @@ def evaluation_function(game_state):
         safety_lvl = 1 if my_length > opponent_snake["length"] else -1
     
     closest_food_dist = float('inf')
-
-    for a_food in food:
-        dist_to_food = abs(my_head["x"] - a_food["x"]) + abs(my_head["y"] - a_food["y"])
+    for each_food in food:
+        dist_to_food = abs(my_head["x"] - each_food["x"]) + abs(my_head["y"] - each_food["y"])
         if dist_to_food < closest_food_dist:
             closest_food_dist = dist_to_food
 
@@ -81,8 +87,8 @@ def evaluation_function(game_state):
     health_weight = 4
     food_dist_weight = -2
     
-    eval_score = (my_length*length_weight) + (safety_lvl*safety_weight) + (my_health*health_weight) + (closest_food_dist*food_dist_weight)
-    return eval_score
+    return (my_length*length_weight) + (safety_lvl*safety_weight) + (my_health*health_weight) + (closest_food_dist*food_dist_weight)
+
 
 # simulates what the next state will be after a given move
 def get_next_state(game_state, move, is_maximizing_player):
@@ -175,10 +181,6 @@ def minimax(game_state, depth, alpha, beta, is_maximizing_player):
         return minEval, optimal_move
 
 
-def game_over(game_state):
-    return len(safe_moves(game_state)) == 0
-
-
 # move is called on every turn and returns your next move
 # Valid moves are "up", "down", "left", or "right"
 # See https://docs.battlesnake.com/api/example-move for available data
@@ -203,31 +205,34 @@ def safe_moves(game_state: typing.Dict) -> typing.Dict:
         is_move_safe["up"] = False
 
     # TODO: Prevent your Battlesnake from moving out of bounds
-    board_width = game_state["board"]["width"]
-    board_height = game_state["board"]["height"]
+    board_width = game_state["board"]["width"]      # 11
+    board_height = game_state["board"]["height"]    # 11
 
     if my_head["x"] == 0:
         is_move_safe["left"] = False
+        
     if my_head["x"] == board_width - 1:
         is_move_safe["right"] = False
 
     if my_head["y"] == 0:
         is_move_safe["down"] = False
+        
     if my_head["y"] == board_height - 1:
         is_move_safe["up"] = False
 
     # TODO: Prevent your Battlesnake from colliding with itself
     # index 0 is just head, the rest body starts from index 1
     my_body = game_state["you"]["body"][1:]
-
     for body in my_body:
         if my_head["x"] == body["x"] and my_head["y"] + 1 == body["y"]:  # Head is below the body
             is_move_safe["up"] = False
+            
         if my_head["x"] == body["x"] and my_head["y"] - 1 == body["y"]:  # Head is above the body
             is_move_safe["down"] = False
 
         if my_head["y"] == body["y"] and my_head["x"] - 1 == body["x"]:  # Head is facing towards the right side
             is_move_safe["left"] = False
+            
         if my_head["y"] == body["y"] and my_head["x"] + 1 == body["x"]:  # Head is facing towards the left side
             is_move_safe["right"] = False
 
@@ -235,14 +240,16 @@ def safe_moves(game_state: typing.Dict) -> typing.Dict:
     opponents = game_state["board"]["snakes"]
     for opponent in opponents:
         for body in opponent["body"]:
-            if my_head["x"] == body["x"] and my_head["y"] + 1 == body["y"]:
+            if my_head["x"] == body["x"] and my_head["y"] + 1 == body["y"]: # Opponent is above me (same x-axis)
                 is_move_safe["up"] = False
-            if my_head["x"] == body["x"] and my_head["y"] - 1 == body["y"]:
+                
+            if my_head["x"] == body["x"] and my_head["y"] - 1 == body["y"]: # Opponent is below me (same x-axis)
                 is_move_safe["down"] = False
 
-            if my_head["y"] == body["y"] and my_head["x"] + 1 == body["x"]:
+            if my_head["y"] == body["y"] and my_head["x"] + 1 == body["x"]: # Opponent is in front of me from right side
                 is_move_safe["right"] = False
-            if my_head["y"] == body["y"] and my_head["x"] - 1 == body["x"]:
+                
+            if my_head["y"] == body["y"] and my_head["x"] - 1 == body["x"]: # Opponent is in front of me from left side
                 is_move_safe["left"] = False
 
     # Are there any safe moves left?
@@ -254,12 +261,13 @@ def safe_moves(game_state: typing.Dict) -> typing.Dict:
     if len(safe_moves) == 0:
         print(f"MOVE {game_state['turn']}: No safe moves detected! Moving down")
         return {"move": "down"}
-    
     return safe_moves
 
+
 # TODO: Instead of making a random move, use the minimax algorithm to find the optimal move
+# `move` is an innate function of the game, so I separated the 'safe moves' and 'next move' parts
 def move(game_state: typing.Dict) -> typing.Dict:
-    _,next_move = minimax(game_state, 1, float('-inf'), float('inf'), True)
+    _, next_move = minimax(game_state, 1, float('-inf'), float('inf'), True)
     print(f"MOVE {game_state['turn']}: {next_move}")
     return {"move": next_move}
 
