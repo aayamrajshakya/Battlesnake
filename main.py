@@ -82,10 +82,10 @@ def evaluation_function(game_state):
             closest_food_dist = dist_to_food
 
     # Weight for each evaluation factor
-    length_weight = 1
+    length_weight = 5
     safety_weight = 20
-    health_weight = 4
-    food_dist_weight = -2
+    health_weight = 10
+    food_dist_weight = -4
     
     return (my_length*length_weight) + (safety_lvl*safety_weight) + (my_health*health_weight) + (closest_food_dist*food_dist_weight)
 
@@ -285,7 +285,7 @@ def safe_moves(game_state: typing.Dict) -> typing.Dict:
 # TODO: Instead of making a random move, use the minimax algorithm to find the optimal move
 # `move` is an innate function of the game, so I separated the 'safe moves' and 'next move' parts
 def move(game_state: typing.Dict) -> typing.Dict:
-    _, next_move = minimax(game_state, 1, float('-inf'), float('inf'), True, r=2)
+    _, next_move = minimax(game_state, 4, float('-inf'), float('inf'), True, r=2)
     print(f"MOVE {game_state['turn']}: {next_move}")
     return {"move": next_move}
 
